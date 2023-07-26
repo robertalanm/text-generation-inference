@@ -39,6 +39,7 @@ __all__ = [
     "SantaCoder",
     "OPTSharded",
     "T5Sharded",
+    "FlashBTLMSharded",
     "get_model",
 ]
 
@@ -54,6 +55,7 @@ try:
     from text_generation_server.models.flash_santacoder import (
         FlashSantacoderSharded,
     )
+    from text_generation_server.models.flash_btlm import FlashBTLMSharded
 
 except ImportError as e:
     logger.warning(f"Could not import Flash Attention enabled models: {e}")
@@ -64,6 +66,7 @@ if FLASH_ATTENTION:
     __all__.append(FlashRWSharded)
     __all__.append(FlashSantacoderSharded)
     __all__.append(FlashLlama)
+    __all__.append(FlashBTLMSharded)
 
 
 def get_model(
@@ -171,6 +174,26 @@ def get_model(
                 dtype=dtype,
                 trust_remote_code=trust_remote_code,
             )
+        else:
+            return CausalLM(
+                model_id,
+                revision,
+                quantize=quantize,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+        
+    elif model_type == "btlm":
+        if FLASH_ATTENTION:
+            return FlashBTLMSharded(
+                model_id,
+                revision,
+                quantize=quantize,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+        elif sharded:
+            raise NotImplementedError(FLASH_ATT_ERROR_MESSAGE.format("Sharded BTLM"))
         else:
             return CausalLM(
                 model_id,
