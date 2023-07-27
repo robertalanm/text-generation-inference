@@ -453,6 +453,8 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
             else None
         )
 
+        self.embeddings_scale = config.mup_embeddings_scale
+
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
