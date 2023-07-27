@@ -212,7 +212,7 @@ class TensorParallelConv1D(SuperConv1D):
 
     @classmethod
     def load(cls, config, prefix: str, weights, bias: bool, intermediate_dim, embed_dim, scale: int = 1):
-        return cls.load_multi(config, [prefix], weights,embed_dim, bias, dim=0, scale=scale)
+        return cls.load_multi(config, [prefix], weights, intermediate_dim, embed_dim, bias, dim=0, scale=scale)
 
     @classmethod
     def load_multi(cls, config, prefixes: List[str], weights, intermediate_dim, embed_dim, bias: bool, dim: int, scale: int = 1):
