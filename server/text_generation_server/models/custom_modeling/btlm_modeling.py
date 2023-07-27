@@ -219,22 +219,21 @@ class ShardedBTLMAttention(nn.Module):
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
     
-    def _split_heads(self, tensor):
+    def _split_heads(self, tensor, num_heads, attn_head_size):
         """
         Splits hidden_size dim into attn_head_size and num_heads
         """
-        new_shape = tensor.size()[:-1] + (self.num_heads, self.head_dim)
+        new_shape = tensor.size()[:-1] + (num_heads, attn_head_size)
         tensor = tensor.view(new_shape)
         return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
-
-    def _merge_heads(self, tensor):
+    
+    def _merge_heads(self, tensor, num_heads, attn_head_size):
         """
         Merges attn_head_size dim and num_attn_heads dim into hidden_size
         """
         tensor = tensor.permute(0, 2, 1, 3).contiguous()
-        new_shape = tensor.size()[:-2] + (self.num_heads_per_partition * self.head_dim,)
+        new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
         return tensor.view(new_shape)
-    
     def _attn(self, query, key, value, attention_mask=None, head_mask=None, position_bias=None):
         attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
@@ -292,11 +291,11 @@ class ShardedBTLMAttention(nn.Module):
             attention_mask = encoder_attention_mask
         else:
             query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
-            
-        query = self._split_heads(query)
-        key = self._split_heads(key)
-        value = self._split_heads(value)
-
+        
+        query = self._split_heads(query, self.num_heads, self.head_dim)
+        key = self._split_heads(key, self.num_heads, self.head_dim)
+        value = self._split_heads(value, self.num_heads, self.head_dim)
+        
         attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask, position_bias)
 
         attn_output = self._merge_heads(attn_output)
