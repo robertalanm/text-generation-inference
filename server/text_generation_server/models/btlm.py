@@ -63,12 +63,10 @@ class BTLMSharded(CausalLM):
         model = BTLMForCausalLM(config, weights)
 
         torch.distributed.barrier(group=self.process_group)
-        super(BTLMForCausalLM, self).__init__(
+        super(CausalLM, self).__init__(
             model=model,
             tokenizer=tokenizer,
-            num_layers=len(model.transformer.h),
-            num_kv_heads=1, # TODO: fix this such that it is based off model
-            head_size=model.transformer.n_head,
+            requires_padding=True,
             dtype=dtype,
             device=device,
             rank=rank,
