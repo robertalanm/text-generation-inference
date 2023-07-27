@@ -15,6 +15,10 @@ from text_generation_server.utils import (
     Weights,
 )
 
+from loguru import logger
+
+logger = logger.opt(colors=True)
+
 tracer = trace.get_tracer(__name__)
 
 
@@ -56,7 +60,7 @@ class BTLMSharded(CausalLM):
             weights._set_gptq_params(model_id)
 
 
-        print(weights)
+        logger.info(weights)
         model = BTLMForCausalLM(config, weights)
 
         torch.distributed.barrier(group=self.process_group)
