@@ -438,7 +438,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
 
         # Replace regular embeddings with tensor parallel ones
         # self.wte = TensorParallelEmbedding(prefix="wte", weights=weights)
-        self.wte = nn.Embedding(config.vocab_size, self.embed_dim)
+        self.wte = nn.Embedding(config.vocab_size, self.embed_dim).to(self.device)
         self.drop = nn.Dropout(config.embd_pdrop)
 
         # Replace blocks with sharded ones
@@ -542,7 +542,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         head_mask = self.get_head_mask(head_mask, self.config.n_layer)
 
         if inputs_embeds is None:
-            inputs_embeds = self.wte(input_ids)
+            inputs_embeds = self.wte(input_ids.to(hidd))
 
         hidden_states = inputs_embeds
         hidden_states *= torch.tensor(
