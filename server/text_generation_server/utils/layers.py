@@ -5,7 +5,7 @@ import torch.distributed
 from torch import nn
 from torch.nn import functional as F
 from typing import List
-
+from transformers.pytorch_utils import Conv1D
 HAS_BITS_AND_BYTES = True
 try:
     import bitsandbytes as bnb
@@ -198,7 +198,7 @@ class SuperConv1D(nn.Module):
 
 def get_conv1d(weight, bias, quantize, scale, embed_dim, kernel_size=1, stride=1, padding=0, dilation=1, groups=1):
     if quantize is None:
-        conv1d = nn.Conv1d(scale * embed_dim, embed_dim)
+        conv1d = Conv1D(scale * embed_dim, embed_dim)
         conv1d.weight.data = weight
         if bias is not None:
             conv1d.bias.data = bias
