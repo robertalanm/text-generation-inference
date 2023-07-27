@@ -434,7 +434,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         self.embed_dim = config.hidden_size
         self.num_attention_heads = config.num_attention_heads
         print(f'\n\n\n{weights}\n\n\n')
-        print(weights.keys())
+        # print(weights.keys())
 
         # Replace regular embeddings with tensor parallel ones
         self.wte = TensorParallelEmbedding(prefix="transformer.wte", weights=weights)
