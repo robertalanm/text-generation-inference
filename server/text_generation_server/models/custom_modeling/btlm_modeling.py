@@ -291,7 +291,7 @@ class ShardedBTLMAttention(nn.Module):
             key, value = self.c_attn(encoder_hidden_states).split(self.split_size, dim=2)
             attention_mask = encoder_attention_mask
         else:
-            query, key, value = self.c_attn(hidden_states.to(torch.float16)).split(self.split_size, dim=2)
+            query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
             
         query = self._split_heads(query)
         key = self._split_heads(key)
