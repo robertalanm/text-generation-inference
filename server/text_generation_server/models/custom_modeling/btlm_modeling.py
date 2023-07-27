@@ -48,6 +48,7 @@ from loguru import logger
 from text_generation_server.utils.layers import (
     TensorParallelColumnLinear,
     TensorParallelEmbedding,
+    TensorParallelConv1D,
     TensorParallelRowLinear,
     TensorParallelHead,
 )
@@ -200,16 +201,25 @@ class ShardedBTLMAttention(nn.Module):
                 f"and `num_shards`: {weights.process_group.size()}"
             )
 
-        self.query_key_value = TensorParallelColumnLinear.load(
-            config, prefix=f"{prefix}.query_key_value", weights=weights, bias=True
-        )
-        self.dense = TensorParallelRowLinear.load(
-            config, prefix=f"{prefix}.dense", weights=weights, bias=True
+        if self.is_cross_attention:
+            self.c_attn = TensorParallelConv1D.load(
+                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True
+            )
+            self.q_attn = TensorParallelConv1D.load(
+                config, prefix=f"{prefix}.q_attn", weights=weights, bias=True
+            )
+        else:
+            self.c_attn = TensorParallelConv1D.load(
+                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True
+            )
+        
+        self.c_proj = TensorParallelConv1D.load(
+            config, prefix=f"{prefix}.c_proj", weights=weights, bias=True
         )
 
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
-
+    
     def _split_heads(self, tensor):
         """
         Splits hidden_size dim into attn_head_size and num_heads
@@ -271,13 +281,19 @@ class ShardedBTLMAttention(nn.Module):
         output_attentions=False,
         position_bias=None,
     ):
-        if self.is_cross_attention:
-            query = self.query_key_value(hidden_states)
-            key, value = self.query_key_value(encoder_hidden_states).split(self.split_size, dim=2)
+        if encoder_hidden_states is not None:
+            if not hasattr(self, "q_attn"):
+                raise ValueError(
+                    "If class is used as cross attention, the weights `q_attn` have to be defined. "
+                    "Please make sure to instantiate class with `BTLMAttention(..., is_cross_attention=True)`."
+                )
+
+            query = self.q_attn(hidden_states)
+            key, value = self.c_attn(encoder_hidden_states).split(self.split_size, dim=2)
             attention_mask = encoder_attention_mask
         else:
-            query, key, value = self.query_key_value(hidden_states).split(self.split_size, dim=2)
-
+            query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
+            
         query = self._split_heads(query)
         key = self._split_heads(key)
         value = self._split_heads(value)
@@ -419,8 +435,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         self.num_attention_heads = config.num_attention_heads
 
         # Replace regular embeddings with tensor parallel ones
-        self.wte = TensorParallelEmbedding(prefix="btlm.wte", weights=weights)
-        self.wpe = TensorParallelEmbedding(prefix="btlm.wpe", weights=weights) if config.position_embedding_type != "alibi" else None
+        self.wte = TensorParallelEmbedding(prefix="transformer.wte", weights=weights)
 
         self.drop = nn.Dropout(config.embd_pdrop)
 
@@ -428,7 +443,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         self.h = nn.ModuleList([ShardedBTLMBlock(config, weights, layer_idx=i) for i in range(config.num_hidden_layers)])
 
         # Replace final layernorm
-        self.ln_f = nn.LayerNorm.load(prefix="btlm.ln_f", weights=weights, eps=config.layer_norm_epsilon)
+        self.ln_f = nn.LayerNorm.load(prefix="transformer.ln_f", weights=weights, eps=config.layer_norm_epsilon)
 
         self.relative_pe = (
             AlibiPositionEmbeddingLayer(config.num_attention_heads)
@@ -526,11 +541,8 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
-        if self.wpe is not None:
-            position_embeds = self.wpe(position_ids)
-            hidden_states = inputs_embeds + position_embeds
-        else:
-            hidden_states = inputs_embeds
+
+        hidden_states = inputs_embeds
         hidden_states *= torch.tensor(
             float(self.embeddings_scale), dtype=hidden_states.dtype, device=hidden_states.device
         )

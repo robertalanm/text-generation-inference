@@ -177,6 +177,7 @@ def get_linear(weight, bias, quantize):
     return linear
 
 
+
 class SuperLayer(nn.Module):
     def __init__(self, linear):
         super().__init__()
@@ -185,6 +186,48 @@ class SuperLayer(nn.Module):
     def forward(self, x):
         return self.linear.forward(x)
 
+
+def get_conv1d(weight, bias, quantize, kernel_size=1, stride=1, padding=0, dilation=1, groups=1):
+    if quantize is None:
+        conv1d = nn.Conv1d(in_channels=weight.shape[0],
+                           out_channels=weight.shape[1],
+                           kernel_size=kernel_size,
+                           stride=stride,
+                           padding=padding,
+                           dilation=dilation,
+                           groups=groups)
+        conv1d.weight.data = weight
+        if bias is not None:
+            conv1d.bias.data = bias
+    else:
+        raise NotImplementedError(f"Quantization `{quantize}` is not implemented yet.")
+    return conv1d
+
+class TensorParallelConv1D(SuperLayer):
+    @classmethod
+    def load(cls, config, prefix: str, weights, bias: bool):
+        return cls.load_multi(config, [prefix], weights, bias, dim=0)
+
+    @classmethod
+    def load_multi(cls, config, prefixes: List[str], weights, bias: bool, dim: int):
+        weight = weights.get_multi_weights_col(
+            prefixes, quantize=config.quantize, dim=dim
+        )
+
+        if bias:
+            b = [weights.get_sharded(f"{p}.bias", dim=0) for p in prefixes]
+            bias = torch.cat(b, dim=dim)
+        else:
+            bias = None
+        conv1d = get_conv1d(weight, bias, config.quantize)
+        return cls(conv1d)
+
+    def __init__(self, conv1d):
+        super().__init__()
+        self.conv1d = conv1d
+
+    def forward(self, x):
+        return self.conv1d(x)
 
 class TensorParallelHead(SuperLayer):
     def __init__(self, linear, process_group, should_gather: bool):
