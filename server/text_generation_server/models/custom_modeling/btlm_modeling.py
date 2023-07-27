@@ -437,8 +437,8 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         # print(weights.keys())
 
         # Replace regular embeddings with tensor parallel ones
-        self.wte = TensorParallelEmbedding(prefix="wte", weights=weights)
-
+        # self.wte = TensorParallelEmbedding(prefix="wte", weights=weights)
+        self.wte = nn.Embedding(config.vocab_size, self.embed_dim)
         self.drop = nn.Dropout(config.embd_pdrop)
 
         # Replace blocks with sharded ones

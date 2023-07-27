@@ -60,7 +60,6 @@ class BTLMSharded(CausalLM):
             weights._set_gptq_params(model_id)
 
 
-        logger.info(weights)
         model = BTLMForCausalLM(config, weights)
 
         torch.distributed.barrier(group=self.process_group)
