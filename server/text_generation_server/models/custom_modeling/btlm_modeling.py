@@ -33,6 +33,9 @@ from transformers.file_utils import (
     replace_return_docstrings,
 )
 
+from transformers.pytorch_utils import Conv1D
+
+
 from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
@@ -207,20 +210,11 @@ class ShardedBTLMAttention(nn.Module):
         )
 
         if self.is_cross_attention:
-            self.c_attn = TensorParallelConv1D.load(
-                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True, scale=2, intermediate_dim=self.embed_dim, embed_dim=self.embed_dim
-            )
-            self.q_attn = TensorParallelConv1D.load(
-                config, prefix=f"{prefix}.q_attn", weights=weights, bias=True, scale=1, intermediate_dim=self.embed_dim,  embed_dim=self.embed_dim
-            )
+            self.c_attn = Conv1D(2 * self.embed_dim, self.embed_dim)
+            self.q_attn = Conv1D(self.embed_dim, self.embed_dim)
         else:
-            self.c_attn = TensorParallelConv1D.load(
-                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True, scale=3, intermediate_dim=self.embed_dim,  embed_dim=self.embed_dim
-            )
-        
-        self.c_proj = TensorParallelConv1D.load(
-            config, prefix=f"{prefix}.c_proj", weights=weights, bias=True, scale=1, intermediate_dim=self.embed_dim,  embed_dim=self.embed_dim
-        )
+            self.c_attn = Conv1D(3 * self.embed_dim, self.embed_dim)
+        self.c_proj = Conv1D(self.embed_dim, self.embed_dim)
 
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
@@ -326,34 +320,22 @@ class ShardedBTLMMLP(nn.Module):
         self.act = SwiGLUActivation() if self.swiglu else ACT2FN[config.activation_function]
         self.dropout = nn.Dropout(config.resid_pdrop)
         embed_dim = config.hidden_size
-        # self.c_fc = TensorParallelColumnLinear.load(
-        #     config, prefix=f"{prefix}.c_fc", weights=weights, bias=True
-        # )
-        # self.c_fc2 = None
-        # if self.swiglu:
-        #     self.c_fc2 = TensorParallelColumnLinear.load(
-        #         config, prefix=f"{prefix}.c_fc2", weights=weights, bias=True
-        #     )
 
-        # self.c_proj = TensorParallelRowLinear.load(
-        #     config, prefix=f"{prefix}.c_proj", weights=weights, bias=True
+        self.c_fc = Conv1D(intermediate_dim, embed_dim)
+        self.c_fc2 = Conv1D(intermediate_dim, embed_dim) if self.swiglu else None
+        self.c_proj = Conv1D(embed_dim, intermediate_dim)
+
+        # self.c_fc = TensorParallelConv1D.load(
+        #     config, prefix=f"{prefix}.c_fc", weights=weights, bias=True, scale=1, intermediate_dim=intermediate_dim, embed_dim=embed_dim
         # )
 
-        # self.c_attn = TensorParallelConv1D.load(
-        #         config, prefix=f"{prefix}.c_attn", weights=weights, bias=True, scale=2, intermediate_dim=self.embed_dim, embed_dim=self.embed_dim
-        #     )
+        # self.c_fc2 = TensorParallelConv1D.load(
+        #     config, prefix=f"{prefix}.c_fc2", weights=weights, bias=True, scale=1, intermediate_dim=intermediate_dim, embed_dim=embed_dim
+        # )
 
-        self.c_fc = TensorParallelConv1D.load(
-            config, prefix=f"{prefix}.c_fc", weights=weights, bias=True, scale=1, intermediate_dim=intermediate_dim, embed_dim=embed_dim
-        )
-
-        self.c_fc2 = TensorParallelConv1D.load(
-            config, prefix=f"{prefix}.c_fc2", weights=weights, bias=True, scale=1, intermediate_dim=intermediate_dim, embed_dim=embed_dim
-        )
-
-        self.c_proj = TensorParallelConv1D.load(
-            config, prefix=f"{prefix}.c_proj", weights=weights, bias=True, scale=1, intermediate_dim=embed_dim, embed_dim=embed_dim
-        )
+        # self.c_proj = TensorParallelConv1D.load(
+        #     config, prefix=f"{prefix}.c_proj", weights=weights, bias=True, scale=1, intermediate_dim=embed_dim, embed_dim=embed_dim
+        # )
 
     def forward(self, hidden_states: Optional[Tuple[torch.FloatTensor]]) -> torch.FloatTensor:
         if self.swiglu:
