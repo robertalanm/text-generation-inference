@@ -223,7 +223,7 @@ class ShardedBTLMAttention(nn.Module):
         """
         Splits hidden_size dim into attn_head_size and num_heads
         """
-        new_shape = tensor.size()[:-1] + (self.num_heads_per_partition, self.head_dim)
+        new_shape = tensor.size()[:-1] + (self.num_heads, self.head_dim)
         tensor = tensor.view(new_shape)
         return tensor.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
