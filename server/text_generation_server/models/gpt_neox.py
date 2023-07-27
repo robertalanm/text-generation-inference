@@ -76,7 +76,7 @@ class GPTNeoxSharded(CausalLM):
         self, input_ids, attention_mask, position_ids, past_key_values: Optional = None
     ):
         outputs = self.model.forward(
-            input_ids=input_ids,
+            input_ids=input_ids.to(self.device),
             attention_mask=attention_mask,
             position_ids=position_ids,
             past_key_values=past_key_values,
