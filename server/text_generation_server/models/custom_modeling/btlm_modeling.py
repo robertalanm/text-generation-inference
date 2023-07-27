@@ -202,8 +202,8 @@ class ShardedBTLMAttention(nn.Module):
                 f"and `num_shards`: {weights.process_group.size()}"
             )
         
-        self.num_attention_heads = (
-            self.num_attention_heads // weights.process_group.size()
+        self.num_heads = (
+            self.num_heads // weights.process_group.size()
         )
 
         if self.is_cross_attention:
