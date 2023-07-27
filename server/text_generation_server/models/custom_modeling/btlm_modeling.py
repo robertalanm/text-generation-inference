@@ -542,7 +542,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         head_mask = self.get_head_mask(head_mask, self.config.n_layer)
 
         if inputs_embeds is None:
-            inputs_embeds = self.wte(input_ids.to(device))
+            inputs_embeds = self.wte(input_ids)
 
         hidden_states = inputs_embeds
         hidden_states *= torch.tensor(

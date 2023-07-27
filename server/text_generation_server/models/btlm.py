@@ -64,7 +64,7 @@ class BTLMSharded(CausalLM):
 
         torch.distributed.barrier(group=self.process_group)
         super(CausalLM, self).__init__(
-            model=model,
+            model=model.to(self.device),
             tokenizer=tokenizer,
             requires_padding=True,
             dtype=dtype,
