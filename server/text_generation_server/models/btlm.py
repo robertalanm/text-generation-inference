@@ -72,3 +72,17 @@ class BTLMSharded(CausalLM):
             rank=rank,
             world_size=world_size,
         )
+        
+    def forward(
+        self, input_ids, attention_mask, position_ids, past_key_values: Optional = None
+    ):
+        outputs = self.model.forward(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_values=past_key_values,
+            use_cache=True,
+        )
+
+        logits = outputs.logits
+        return logits, outputs.past_key_values
