@@ -440,7 +440,6 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
         # self.wte = TensorParallelEmbedding(prefix="wte", weights=weights)
         self.wte = nn.Embedding(config.vocab_size, self.embed_dim)
         self.drop = nn.Dropout(config.embd_pdrop)
-        prefix = "transformer"
 
         # Replace blocks with sharded ones
         self.h = nn.ModuleList([ShardedBTLMBlock(config, f"transformer.h.{i}", weights, layer_idx=i) for i in range(config.num_hidden_layers)])
@@ -668,7 +667,7 @@ class BTLMForCausalLM(BTLMPreTrainedModel):
         self.config = config
 
         self.transformer = ShardedBTLMModel(config, weights)
-        self.lm_head = TensorParallelHead(
+        self.lm_head = TensorParallelHead.load(
             prefix="lm_head", weights=weights
         )
 
