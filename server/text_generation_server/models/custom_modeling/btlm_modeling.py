@@ -668,7 +668,7 @@ class BTLMForCausalLM(BTLMPreTrainedModel):
 
         self.transformer = ShardedBTLMModel(config, weights)
         self.lm_head = TensorParallelHead.load(
-            prefix="lm_head", weights=weights
+            config, prefix="lm_head", weights=weights
         )
 
         self.output_logits_scale = config.mup_output_alpha * config.mup_width_scale
