@@ -196,9 +196,9 @@ class SuperConv1D(nn.Module):
     def forward(self, x):
         return self.conv1d.forward(x)
 
-def get_conv1d(weight, bias, quantize, scale, embed_dim, kernel_size=1, stride=1, padding=0, dilation=1, groups=1):
+def get_conv1d(weight, bias, quantize, scale, intermediate_dim, embed_dim, kernel_size=1, stride=1, padding=0, dilation=1, groups=1):
     if quantize is None:
-        conv1d = Conv1D(scale * embed_dim, embed_dim)
+        conv1d = Conv1D(scale * intermediate_dim, embed_dim)
         conv1d.weight.data = weight
         if bias is not None:
             conv1d.bias.data = bias
@@ -211,11 +211,11 @@ class TensorParallelConv1D(SuperConv1D):
         super().__init__(conv1d)
 
     @classmethod
-    def load(cls, config, prefix: str, weights, bias: bool,embed_dim, scale: int = 1):
+    def load(cls, config, prefix: str, weights, bias: bool, intermediate_dim, embed_dim, scale: int = 1):
         return cls.load_multi(config, [prefix], weights,embed_dim, bias, dim=0, scale=scale)
 
     @classmethod
-    def load_multi(cls, config, prefixes: List[str], weights,embed_dim, bias: bool, dim: int, scale: int = 1):
+    def load_multi(cls, config, prefixes: List[str], weights, intermediate_dim, embed_dim, bias: bool, dim: int, scale: int = 1):
         weight = weights.get_multi_weights_col(
             prefixes, quantize=config.quantize, dim=dim
         )
@@ -225,7 +225,7 @@ class TensorParallelConv1D(SuperConv1D):
             bias = torch.cat(b, dim=dim)
         else:
             bias = None
-        conv1d = get_conv1d(weight, bias, config.quantize, scale, embed_dim)
+        conv1d = get_conv1d(weight, bias, config.quantize, scale, intermediate_dim, embed_dim)
         return cls(conv1d)
 
 
