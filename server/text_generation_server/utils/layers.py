@@ -187,6 +187,14 @@ class SuperLayer(nn.Module):
         return self.linear.forward(x)
 
 
+class SuperConv1D(nn.Module):
+    def __init__(self, conv1d):
+        super().__init__()
+        self.conv1d = conv1d
+
+    def forward(self, x):
+        return self.conv1d.forward(x)
+
 def get_conv1d(weight, bias, quantize, kernel_size=1, stride=1, padding=0, dilation=1, groups=1):
     if quantize is None:
         conv1d = nn.Conv1d(in_channels=weight.shape[0],
@@ -203,7 +211,10 @@ def get_conv1d(weight, bias, quantize, kernel_size=1, stride=1, padding=0, dilat
         raise NotImplementedError(f"Quantization `{quantize}` is not implemented yet.")
     return conv1d
 
-class TensorParallelConv1D(SuperLayer):
+class TensorParallelConv1D(SuperConv1D):
+    def __init__(self, conv1d):
+        super().__init__(conv1d)
+        
     @classmethod
     def load(cls, config, prefix: str, weights, bias: bool):
         return cls.load_multi(config, [prefix], weights, bias, dim=0)
@@ -222,12 +233,6 @@ class TensorParallelConv1D(SuperLayer):
         conv1d = get_conv1d(weight, bias, config.quantize)
         return cls(conv1d)
 
-    def __init__(self, conv1d):
-        super().__init__()
-        self.conv1d = conv1d
-
-    def forward(self, x):
-        return self.conv1d(x)
 
 class TensorParallelHead(SuperLayer):
     def __init__(self, linear, process_group, should_gather: bool):
