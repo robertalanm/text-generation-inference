@@ -203,18 +203,18 @@ class ShardedBTLMAttention(nn.Module):
 
         if self.is_cross_attention:
             self.c_attn = TensorParallelConv1D.load(
-                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True
+                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True, scale=2, embed_dim=self.embed_dim
             )
             self.q_attn = TensorParallelConv1D.load(
-                config, prefix=f"{prefix}.q_attn", weights=weights, bias=True
+                config, prefix=f"{prefix}.q_attn", weights=weights, bias=True, scale=1, embed_dim=self.embed_dim
             )
         else:
             self.c_attn = TensorParallelConv1D.load(
-                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True
+                config, prefix=f"{prefix}.c_attn", weights=weights, bias=True, scale=3, embed_dim=self.embed_dim
             )
         
         self.c_proj = TensorParallelConv1D.load(
-            config, prefix=f"{prefix}.c_proj", weights=weights, bias=True
+            config, prefix=f"{prefix}.c_proj", weights=weights, bias=True, scale=1, embed_dim=self.embed_dim
         )
 
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
