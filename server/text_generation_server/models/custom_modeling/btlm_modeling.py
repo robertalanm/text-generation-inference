@@ -619,7 +619,7 @@ class ShardedBTLMModel(BTLMPreTrainedModel):
             else:
                 outputs = block(
                     hidden_states,
-                    layer_past=layer_past,
+                    # layer_past=layer_past,
                     attention_mask=attention_mask,
                     head_mask=head_mask[i],
                     encoder_hidden_states=encoder_hidden_states,
